@@ -43,6 +43,9 @@ module.exports = class Json extends BaseVersioning {
     // Update the content with the new version
     objectPath.set(jsonContent, this.versionPath, this.newVersion)
 
+
+    objectPath.set(jsonContent, 'testaap', 'ftw')
+
     // Update the file
     this.update(
       JSON.stringify(jsonContent, null, 2),
