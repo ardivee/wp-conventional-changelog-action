@@ -66,6 +66,10 @@ inputs:
     default: '5'
     required: false
 
+  plugin-file:
+    description: 'The path to the main plugin file'
+    required: true
+
   version-file:
     description: 'The path to the file that contains the version to bump (supports comma-separated list of file paths)'
     default: './package.json'

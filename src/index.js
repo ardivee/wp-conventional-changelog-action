@@ -7,6 +7,8 @@ const git = require('./helpers/git')
 const changelog = require('./helpers/generateChangelog')
 const requireScript = require('./helpers/requireScript')
 
+const wpPlugin = require('./helpers/wpPlugin')
+
 async function handleVersioningByExtension(ext, file, versionPath, releaseType) {
   const versioning = getVersioning(ext)
 
@@ -35,6 +37,7 @@ async function run() {
     const preCommitFile = core.getInput('pre-commit')
     const outputFile = core.getInput('output-file')
     const releaseCount = core.getInput('release-count')
+    const pluginFile = core.getInput('plugin-file')
     const versionFile = core.getInput('version-file')
     const versionPath = core.getInput('version-path')
     const skipGitPull = core.getBooleanInput('skip-git-pull')
@@ -126,6 +129,8 @@ async function run() {
 
         newVersion = versioning[0].newVersion
       }
+
+      wpPlugin.update(path.resolve(process.cwd(), pluginFile), newVersion)
 
       let gitTag = `${tagPrefix}${newVersion}`
 
