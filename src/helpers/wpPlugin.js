@@ -3,8 +3,6 @@ const fs = require('fs')
 
 module.exports = {
 	update: (filePath, version) => {
-		// let filePath = path.resolve(process.cwd(), './dodo-chatbot.php')
-
 		const multiLineCommentRegex = /\/([^\n]*$|(?!\\)\*[\s\S]*?\*(?!\\)\/)+/g
 		const versionRegex = /Version: (?:(\d+)\.)?(?:(\d+)\.)?(?:(\d+)\.\d+)+/g
 
@@ -21,10 +19,12 @@ module.exports = {
 
 				let newContent = content.replace(matches[0], updatedVersion)
 
+				core.info(`Updating plugin file: ${filePath}`)
+
 				fs.writeFileSync(filePath, newContent)
 			}
 		} else {
-			core.info(`File does not exist: ${filePath}`)
+			core.info(`Plugin file does not exist: ${filePath}`)
 		}
 	},
 }

@@ -72,7 +72,7 @@ inputs:
 
   version-file:
     description: 'The path to the file that contains the version to bump (supports comma-separated list of file paths)'
-    default: './package.json'
+    default: './composer.json'
     required: false
 
   version-path:
