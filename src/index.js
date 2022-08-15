@@ -189,7 +189,7 @@ async function run() {
       }
 
       // Create the new tag
-      await git.createTag(gitTag)
+      // await git.createTag(gitTag)
 
       if (gitPush) {
         try {
