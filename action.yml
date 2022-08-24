@@ -75,6 +75,11 @@ inputs:
     default: './composer.json'
     required: false
 
+  prepare-release:
+    description: 'If we are preparing for a release, we will not update any version or anything :)'
+    default: 'false'
+    required: false
+
   version-path:
     description: 'The place inside the version file to bump'
     default: 'version'

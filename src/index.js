@@ -9,236 +9,261 @@ const requireScript = require('./helpers/requireScript')
 
 const wpPlugin = require('./helpers/wpPlugin')
 
-async function handleVersioningByExtension(ext, file, versionPath, releaseType) {
-  const versioning = getVersioning(ext)
+async function handleVersioningByExtension(ext, file, versionPath, releaseType, shouldBump = true) {
+	const versioning = getVersioning(ext)
 
-  // File type not supported
-  if (versioning === null) {
-    throw new Error(`File extension "${ext}" from file "${file}" is not supported`)
-  }
+	// File type not supported
+	if (versioning === null) {
+		throw new Error(`File extension "${ext}" from file "${file}" is not supported`)
+	}
 
-  versioning.init(path.resolve(process.cwd(), file), versionPath)
+	versioning.init(path.resolve(process.cwd(), file), versionPath)
 
-  // Bump the version in the package.json
-  await versioning.bump(releaseType)
+	if (shouldBump) {
+		// Bump the version in the composer.json
+		await versioning.bump(releaseType)
+	} else {
+		// Get the current version
+		await versioning.getVersion()
+	}
 
-  return versioning
+
+	return versioning
 }
 
 async function run() {
-  try {
-    let gitCommitMessage = core.getInput('git-message')
-    const gitUserName = core.getInput('git-user-name')
-    const gitUserEmail = core.getInput('git-user-email')
-    const gitPush = core.getBooleanInput('git-push')
-    const gitBranch = core.getInput('git-branch').replace('refs/heads/', '')
-    const tagPrefix = core.getInput('tag-prefix')
-    const preset = !core.getInput('config-file-path') ? core.getInput('preset') : ''
-    const preCommitFile = core.getInput('pre-commit')
-    const outputFile = core.getInput('output-file')
-    const releaseCount = core.getInput('release-count')
-    const pluginFile = core.getInput('plugin-file')
-    const versionFile = core.getInput('version-file')
-    const versionPath = core.getInput('version-path')
-    const skipGitPull = core.getBooleanInput('skip-git-pull')
-    const skipVersionFile = core.getBooleanInput('skip-version-file')
-    const skipCommit = core.getBooleanInput('skip-commit')
-    const skipEmptyRelease = core.getBooleanInput('skip-on-empty')
-    const conventionalConfigFile = core.getInput('config-file-path')
-    const preChangelogGenerationFile = core.getInput('pre-changelog-generation')
-    const gitUrl = core.getInput('git-url')
-    const skipCi = core.getBooleanInput('skip-ci')
-    const createSummary = core.getBooleanInput('create-summary')
+	try {
+		let gitCommitMessage = core.getInput('git-message')
+		const gitUserName = core.getInput('git-user-name')
+		const gitUserEmail = core.getInput('git-user-email')
+		const gitPush = core.getBooleanInput('git-push')
+		const gitBranch = core.getInput('git-branch').replace('refs/heads/', '')
+		const tagPrefix = core.getInput('tag-prefix')
+		const preset = !core.getInput('config-file-path') ? core.getInput('preset') : ''
+		const preCommitFile = core.getInput('pre-commit')
+		const outputFile = core.getInput('output-file')
+		const releaseCount = core.getInput('release-count')
+		const pluginFile = core.getInput('plugin-file')
+		const prepareRelease = core.getInput('prepare-release')
+		const versionFile = core.getInput('version-file')
+		const versionPath = core.getInput('version-path')
+		const skipGitPull = core.getBooleanInput('skip-git-pull')
+		const skipVersionFile = core.getBooleanInput('skip-version-file')
+		const skipCommit = core.getBooleanInput('skip-commit')
+		const skipEmptyRelease = core.getBooleanInput('skip-on-empty')
+		const conventionalConfigFile = core.getInput('config-file-path')
+		const preChangelogGenerationFile = core.getInput('pre-changelog-generation')
+		const gitUrl = core.getInput('git-url')
+		const skipCi = core.getBooleanInput('skip-ci')
+		const createSummary = core.getBooleanInput('create-summary')
 
-    if (skipCi) {
-      gitCommitMessage += ' [skip ci]'
-    }
+		if (skipCi) {
+			gitCommitMessage += ' [skip ci]'
+		}
 
-    core.info(`Using "${preset}" preset`)
-    core.info(`Using "${gitCommitMessage}" as commit message`)
-    core.info(`Using "${gitUserName}" as git user.name`)
-    core.info(`Using "${gitUserEmail}" as git user.email`)
-    core.info(`Using "${releaseCount}" release count`)
-    core.info(`Using "${versionFile}" as version file`)
-    core.info(`Using "${versionPath}" as version path`)
-    core.info(`Using "${tagPrefix}" as tag prefix`)
-    core.info(`Using "${outputFile}" as output file`)
-    core.info(`Using "${conventionalConfigFile}" as config file`)
-    core.info(`Using "${gitUrl}" as gitUrl`)
-    core.info(`Using "${gitBranch}" as gitBranch`)
+		core.info(`Using "${preset}" preset`)
+		core.info(`Using "${gitCommitMessage}" as commit message`)
+		core.info(`Using "${gitUserName}" as git user.name`)
+		core.info(`Using "${gitUserEmail}" as git user.email`)
+		core.info(`Using "${releaseCount}" release count`)
+		core.info(`Using "${versionFile}" as version file`)
+		core.info(`Using "${versionPath}" as version path`)
+		core.info(`Using "${tagPrefix}" as tag prefix`)
+		core.info(`Using "${outputFile}" as output file`)
+		core.info(`Using "${conventionalConfigFile}" as config file`)
+		core.info(`Using "${gitUrl}" as gitUrl`)
+		core.info(`Using "${gitBranch}" as gitBranch`)
 
-    if (preCommitFile) {
-      core.info(`Using "${preCommitFile}" as pre-commit script`)
-    }
+		if (preCommitFile) {
+			core.info(`Using "${preCommitFile}" as pre-commit script`)
+		}
 
-    if (preChangelogGenerationFile) {
-      core.info(`Using "${preChangelogGenerationFile}" as pre-changelog-generation script`)
-    }
+		if (preChangelogGenerationFile) {
+			core.info(`Using "${preChangelogGenerationFile}" as pre-changelog-generation script`)
+		}
 
-    core.info(`Skipping empty releases is "${skipEmptyRelease ? 'enabled' : 'disabled'}"`)
-    core.info(`Skipping the update of the version file is "${skipVersionFile ? 'enabled' : 'disabled'}"`)
+		core.info(`Skipping empty releases is "${skipEmptyRelease ? 'enabled' : 'disabled'}"`)
+		core.info(`Skipping the update of the version file is "${skipVersionFile ? 'enabled' : 'disabled'}"`)
 
-    if (!skipGitPull) {
-      core.info('Pull to make sure we have the full git history')
-      await git.pull()
-    }
+		if (!skipGitPull) {
+			core.info('Pull to make sure we have the full git history')
+			await git.pull()
+		}
 
-    const config = conventionalConfigFile && requireScript(conventionalConfigFile)
+		const config = conventionalConfigFile && requireScript(conventionalConfigFile)
 
-    conventionalRecommendedBump({ preset, tagPrefix, config }, async (error, recommendation) => {
-      if (error) {
-        core.setFailed(error.message)
-        return
-      }
+		conventionalRecommendedBump({ preset, tagPrefix, config }, async (error, recommendation) => {
+			if (error) {
+				core.setFailed(error.message)
+				return
+			}
 
-      core.info(`Recommended release type: ${recommendation.releaseType}`)
+			core.info(`Recommended release type: ${recommendation.releaseType}`)
 
-      // If we have a reason also log it
-      if (recommendation.reason) {
-        core.info(`Because: ${recommendation.reason}`)
-      }
+			// If we have a reason also log it
+			if (recommendation.reason) {
+				core.info(`Because: ${recommendation.reason}`)
+			}
 
-      let newVersion
+			let newVersion
 
-      // If skipVersionFile or skipCommit is true we use GIT to determine the new version because
-      // skipVersionFile can mean there is no version file and skipCommit can mean that the user
-      // is only interested in tags
-      if (skipVersionFile || skipCommit) {
-        core.info('Using GIT to determine the new version')
-        const versioning = await handleVersioningByExtension(
-          'git',
-          versionFile,
-          versionPath,
-          recommendation.releaseType,
-        )
+			if (prepareRelease === 'false') {
+				// If skipVersionFile or skipCommit is true we use GIT to determine the new version because
+				// skipVersionFile can mean there is no version file and skipCommit can mean that the user
+				// is only interested in tags
+				if (skipVersionFile || skipCommit) {
+					core.info('Using GIT to determine the new version')
+					const versioning = await handleVersioningByExtension(
+						'git',
+						versionFile,
+						versionPath,
+						recommendation.releaseType,
+					)
 
-        newVersion = versioning.newVersion
+					newVersion = versioning.newVersion
 
-      } else {
-        const files = versionFile.split(',').map((f) => f.trim())
-        core.info(`Files to bump: ${files.join(', ')}`)
+				} else {
+					const files = versionFile.split(',').map((f) => f.trim())
+					core.info(`Files to bump: ${files.join(', ')}`)
 
-        const versioning = await Promise.all(
-          files.map((file) => {
-            const fileExtension = file.split('.').pop()
-            core.info(`Bumping version to file "${file}" with extension "${fileExtension}"`)
+					const versioning = await Promise.all(
+						files.map((file) => {
+							const fileExtension = file.split('.').pop()
+							core.info(`Bumping version to file "${file}" with extension "${fileExtension}"`)
 
-            return handleVersioningByExtension(fileExtension, file, versionPath, recommendation.releaseType)
-          }),
-        )
+							return handleVersioningByExtension(fileExtension, file, versionPath, recommendation.releaseType)
+						}),
+					)
 
-        newVersion = versioning[0].newVersion
-      }
+					newVersion = versioning[0].newVersion
+				}
 
-      wpPlugin.update(path.resolve(process.cwd(), pluginFile), newVersion)
+				wpPlugin.update(path.resolve(process.cwd(), pluginFile), newVersion)
+			} else {
+				const files = versionFile.split(',').map((f) => f.trim())
+				core.info(`Files to bump: ${files.join(', ')}`)
 
-      let gitTag = `${tagPrefix}${newVersion}`
+				const versioning = await Promise.all(
+					files.map((file) => {
+						const fileExtension = file.split('.').pop()
+						core.info(`Bumping version to file "${file}" with extension "${fileExtension}"`)
 
-      if (preChangelogGenerationFile) {
-        const preChangelogGenerationScript = requireScript(preChangelogGenerationFile)
+						return handleVersioningByExtension(fileExtension, file, versionPath, recommendation.releaseType, false)
+					}),
+				)
 
-        // Double check if we want to update / do something with the tag
-        if (preChangelogGenerationScript && preChangelogGenerationScript.preTagGeneration) {
-          const modifiedTag = await preChangelogGenerationScript.preTagGeneration(gitTag)
+				newVersion = versioning[0].newVersion
+			}
 
-          if (modifiedTag) {
-            core.info(`Using modified tag "${modifiedTag}"`)
-            gitTag = modifiedTag
-          }
-        }
-      }
 
-      // Generate the string changelog
-      const stringChangelog = await changelog.generateStringChangelog(tagPrefix, preset, newVersion, 1, config)
-      core.info('Changelog generated')
-      core.info(stringChangelog)
 
-      // Removes the version number from the changelog
-      const cleanChangelog = stringChangelog.split('\n').slice(3).join('\n').trim()
+			let gitTag = `${tagPrefix}${newVersion}`
 
-      if (skipEmptyRelease && cleanChangelog === '') {
-        core.info('Generated changelog is empty and skip-on-empty has been activated so we skip this step')
-        core.setOutput('skipped', 'true')
-        return
-      }
+			if (preChangelogGenerationFile) {
+				const preChangelogGenerationScript = requireScript(preChangelogGenerationFile)
 
-      core.info(`New version: ${newVersion}`)
+				// Double check if we want to update / do something with the tag
+				if (preChangelogGenerationScript && preChangelogGenerationScript.preTagGeneration) {
+					const modifiedTag = await preChangelogGenerationScript.preTagGeneration(gitTag)
 
-      // If output file === 'false' we don't write it to file
-      if (outputFile !== 'false') {
-        // Generate the changelog
-        await changelog.generateFileChangelog(tagPrefix, preset, newVersion, outputFile, releaseCount, config)
-      }
+					if (modifiedTag) {
+						core.info(`Using modified tag "${modifiedTag}"`)
+						gitTag = modifiedTag
+					}
+				}
+			}
 
-      if (!skipCommit) {
-        // Add changed files to git
-        if (preCommitFile) {
-          const preCommitScript = requireScript(preCommitFile)
+			// Generate the string changelog
+			const stringChangelog = await changelog.generateStringChangelog(tagPrefix, preset, newVersion, 1, config)
+			core.info('Changelog generated')
+			core.info(stringChangelog)
 
-          // Double check if the file exists and the export exists
-          if (preCommitScript && preCommitScript.preCommit) {
-            await preCommitScript.preCommit({
-              tag: gitTag,
-              version: newVersion,
-            })
-          }
-        }
+			// Removes the version number from the changelog
+			const cleanChangelog = stringChangelog.split('\n').slice(3).join('\n').trim()
 
-        await git.add('.')
-        await git.commit(gitCommitMessage.replace('{version}', gitTag))
-      }
+			if (skipEmptyRelease && cleanChangelog === '') {
+				core.info('Generated changelog is empty and skip-on-empty has been activated so we skip this step')
+				core.setOutput('skipped', 'true')
+				return
+			}
 
-      // Create the new tag
-      // await git.createTag(gitTag)
+			core.info(`New version: ${newVersion}`)
 
-      if (gitPush) {
-        try {
-          core.info('Push all changes')
-          await git.push(gitBranch)
+			// If output file === 'false' we don't write it to file
+			if (outputFile !== 'false') {
+				// Generate the changelog
+				await changelog.generateFileChangelog(tagPrefix, preset, newVersion, outputFile, releaseCount, config)
+			}
 
-        } catch (error) {
-          console.error(error)
+			if (!skipCommit) {
+				// Add changed files to git
+				if (preCommitFile) {
+					const preCommitScript = requireScript(preCommitFile)
 
-          core.setFailed(error)
+					// Double check if the file exists and the export exists
+					if (preCommitScript && preCommitScript.preCommit) {
+						await preCommitScript.preCommit({
+							tag: gitTag,
+							version: newVersion,
+						})
+					}
+				}
 
-          return
-        }
+				await git.add('.')
+				await git.commit(gitCommitMessage.replace('{version}', gitTag))
+			}
 
-      } else {
-        core.info('We not going to push the GIT changes')
-      }
+			// Create the new tag
+			// await git.createTag(gitTag)
 
-      // Set outputs so other actions (for example actions/create-release) can use it
-      core.setOutput('changelog', stringChangelog)
-      core.setOutput('clean_changelog', cleanChangelog)
-      core.setOutput('version', newVersion)
-      core.setOutput('tag', gitTag)
-      core.setOutput('skipped', 'false')
+			if (gitPush) {
+				try {
+					core.info('Push all changes')
+					await git.push(gitBranch)
 
-      if (createSummary) {
-        try {
-          await core.summary
-            .addHeading(gitTag, 2)
-            .addRaw(cleanChangelog)
-            .write()
-        } catch (err) {
-          core.warning(`Was unable to create summary! Error: "${err}"`,)
-        }
-      }
+				} catch (error) {
+					console.error(error)
 
-      try {
-        // If we are running in test mode we use this to validate everything still runs
-        git.testHistory(gitBranch)
+					core.setFailed(error)
 
-      } catch (error) {
-        console.error(error)
+					return
+				}
 
-        core.setFailed(error)
-      }
-    })
-  } catch (error) {
-    core.setFailed(error)
-  }
+			} else {
+				core.info('We not going to push the GIT changes')
+			}
+
+			// Set outputs so other actions (for example actions/create-release) can use it
+			core.setOutput('changelog', stringChangelog)
+			core.setOutput('clean_changelog', cleanChangelog)
+			core.setOutput('version', newVersion)
+			core.setOutput('tag', gitTag)
+			core.setOutput('skipped', 'false')
+
+			if (createSummary) {
+				try {
+					await core.summary
+						.addHeading(gitTag, 2)
+						.addRaw(cleanChangelog)
+						.write()
+				} catch (err) {
+					core.warning(`Was unable to create summary! Error: "${err}"`,)
+				}
+			}
+
+			try {
+				// If we are running in test mode we use this to validate everything still runs
+				git.testHistory(gitBranch)
+
+			} catch (error) {
+				console.error(error)
+
+				core.setFailed(error)
+			}
+		})
+	} catch (error) {
+		core.setFailed(error)
+	}
 }
 
 run()

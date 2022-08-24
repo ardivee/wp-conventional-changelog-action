@@ -46,6 +46,15 @@ module.exports = class BaseVersioning {
   }
 
   /**
+   * Logic for getting the current version
+   *
+   * @return {*}
+   */
+  getVersion = () => {
+    throw new Error('Implement bump logic in class!')
+  }
+
+  /**
    * Update the file
    *
    * @param {!string} newContent - New content for the file
